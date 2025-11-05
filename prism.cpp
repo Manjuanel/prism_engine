@@ -36,7 +36,7 @@ class testApp {
     VkPhysicalDevice graphicsCard;
 
     struct QueueFamilyIndices{
-      std::optional<uint32_t> graphicsQueue; //std::optional no tiene valor hasta que se le asigne uno, y se puede consultar si tiene valor con el metodo has_value()
+      std::optional<uint32_t> graphicsQueue;
       std::optional<uint32_t> presentQueue;
     };    
     struct SwapChainSupportDetails{
@@ -75,7 +75,6 @@ class testApp {
       createSwapChain();
     }
     void mainLoop(){
-      // TODO: eliminar queuefamilies?
       while(!glfwWindowShouldClose(window)){
         glfwPollEvents();
       } 
