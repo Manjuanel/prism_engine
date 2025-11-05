@@ -127,47 +127,45 @@ class testApp {
       filterBestSuitablePhysicalDevice(graphicsList);
       findQueueFamilies(graphicsCard);
     }
-    void filterBestSuitablePhysicalDevice(std::vector<VkPhysicalDevice> devices){
-      bool supportsExtensions = true;
-      uint32_t extensionCount;
+    bool physicalDeviceSupportsExtensions(VkPhysicalDevice device){
+      uint32_t extensionCount; 
 
+      vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+      std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+      vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+      std::set<std::string> allExtensions(requiredExtensions.begin(), requiredExtensions.end());
+
+      for(const auto& extension : availableExtensions){
+        allExtensions.erase(extension.extensionName);
+      }
+      if(!allExtensions.empty()){
+        return false;
+      } else return true;
+    }
+    void filterBestSuitablePhysicalDevice(std::vector<VkPhysicalDevice> devices){
       std::multimap<int, VkPhysicalDevice> orderedDevices;
       int score = 0;
 
       VkPhysicalDeviceProperties properties;
       VkPhysicalDeviceFeatures features;
-      std::set<std::string> allExtensions(requiredExtensions.begin(), requiredExtensions.end());
       
       for(const auto& device: devices){
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-  
         vkGetPhysicalDeviceProperties(device, &properties);
         vkGetPhysicalDeviceFeatures(device, &features); //No lo uso por ahora (tengo que ver que onda)
 
         SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
         
-        for(const auto& extension : availableExtensions){                    //
-          allExtensions.erase(extension.extensionName);                      //
-        }                                                                    // TODO: Mover este chequeo de extensiones a su propia funcion
-        if(!allExtensions.empty()){                                          // (con todo lo otro relacionado a eso) (y ordenar tambien)
-          supportsExtensions = false;                                        //
-        }                                                                    //
-        if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){   
+        if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
           score++;
         }
-        if(!(supportsExtensions)){
+        if(!physicalDeviceSupportsExtensions(device) || swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty()){
           score = -1;
-        }
-        if(swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty()){
-          score = -1;    
         }
 
         orderedDevices.insert(std::make_pair(score, device));
         std::cout << "DEVICE DETECTED: " << properties.deviceName << " \t SCORE: " << score << "pt" << std::endl;
         score = 0;
-        supportsExtensions = true;
       }
       if(orderedDevices.rbegin()->first < 0){
         throw std::runtime_error("ERROR: Ninguna grafica cumple con los requisitos...");
