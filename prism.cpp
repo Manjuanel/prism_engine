@@ -101,7 +101,7 @@ class testApp {
       createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
       
-      //createInfo.pApplicationInfo = &appinfo;                 //// No aplica porque no cree un VkApplicationInfo (opcional)
+      //createInfo.pApplicationInfo = &appinfo;                 ////No aplica porque no cree un VkApplicationInfo (opcional)
 
       uint32_t extensionCount = 0;
       const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionCount);
@@ -202,7 +202,6 @@ class testApp {
           throw std::runtime_error("ERROR: Tarjeta grafica no soporta dibujo en superficies...");
         }
     }
-
     void createLogicalDevice(){
       VkPhysicalDeviceFeatures deviceFeatures {}; //No pedi ninguna feature antes, asi que aca no hago nada
 
@@ -233,7 +232,6 @@ class testApp {
       vkGetDeviceQueue(device, queueIndices.graphicsQueue.value(), 0, &graphicsQueue);
       vkGetDeviceQueue(device, queueIndices.presentQueue.value(), 0, &presentQueue);
     }
-
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device){
       SwapChainSupportDetails details;
       
@@ -253,7 +251,6 @@ class testApp {
       }
 return details;
     }
-
     VkSurfaceFormatKHR chooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats){
       for(const auto& availableFormat : availableFormats){
         if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) return availableFormat;
@@ -284,7 +281,6 @@ return details;
         return actualExtent;
       } 
     }
-    
     void createSwapChain(){
       SwapChainSupportDetails details = querySwapChainSupport(graphicsCard);
       
@@ -337,12 +333,12 @@ return details;
     void createImageViews(){
       imageViews.resize(swapChainImages.size());
 
-      for(int i = 0; i < swapChainImages.size(); i++){ //usamos un indice a diferencia de en otros casos, porque tenemos que referirnos a objetos de 2 listas
+      for(int i = 0; i < swapChainImages.size(); i++){ //Usamos un indice a diferencia de en otros casos, porque tenemos que referirnos a objetos de 2 listas
         VkImageViewCreateInfo createInfo{};
         
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         createInfo.image = swapChainImages[i];
-        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // Interesante, te permite tratar con texturas 3D
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; //Interesante, te permite tratar con texturas 3D
         createInfo.format = swapChainImageFormat;
         createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
