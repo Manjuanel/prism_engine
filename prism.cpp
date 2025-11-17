@@ -73,6 +73,8 @@ class testApp {
       selectGraphicCard();  
       createLogicalDevice();
       createSwapChain();
+      createImageViews();
+      createGraphicsPipeline();
     }
     void mainLoop(){
       while(!glfwWindowShouldClose(window)){
@@ -354,6 +356,9 @@ return details;
           throw std::runtime_error("ERROR: No pudieron generarse las imagenes de la swapchain...");
         }
       }
+    }
+    void createGraphicsPipeline(){
+      
     }
 };
 
