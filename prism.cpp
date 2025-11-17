@@ -16,6 +16,7 @@
 #include <optional>
 #include <limits>
 #include <algorithm>
+#include <fstream>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -358,7 +359,55 @@ return details;
       }
     }
     void createGraphicsPipeline(){
+      auto fragShader = readShader("shaders/compiled/frag.spv"); 
+      auto vertShader = readShader("shaders/compiled/vert.spv"); 
+
+      VkShaderModule fragShaderModule = createShaderModule(fragShader);
+      VkShaderModule vertShaderModule = createShaderModule(vertShader);
+
+      VkPipelineShaderStageCreateInfo fragShaderCreateInfo {};
+      fragShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; 
+      fragShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT; //Hay una flag para cada estado programable de la pipeline (vertex, fragment, geometry)
+      fragShaderCreateInfo.module = fragShaderModule;
+      fragShaderCreateInfo.pName = "main";
       
+      VkPipelineShaderStageCreateInfo vertShaderCreateInfo {};
+      vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO; 
+      vertShaderCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+      vertShaderCreateInfo.module = vertShaderModule;
+      vertShaderCreateInfo.pName = "main";
+
+      VkPipelineShaderStageCreateInfo shaderStages[] = {fragShaderCreateInfo, vertShaderCreateInfo};
+
+      // Una vez creado el pipeline grafico, no necesitamos los shader modules, asi que podemos eliminarlos aca
+      vkDestroyShaderModule(device, fragShaderModule, nullptr);
+      vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    }
+    static std::vector<char> readShader(const std::string& filename){
+      std::ifstream file(filename, std::ios::ate | std::ios::binary);
+      if(!file.is_open()) throw std::runtime_error("ERROR: No se pudo abrir el shader " + filename);
+      
+      size_t fileSize = (size_t) file.tellg();
+      std::vector <char> buffer(fileSize);
+      
+      std::cout << filename << " size is: " << fileSize << "bytes." << std::endl;
+
+      file.seekg(0); //Ir al inicio del archivo
+      file.read(buffer.data(), fileSize);
+      file.close();
+      
+      return buffer;
+    }
+    VkShaderModule createShaderModule(const std::vector<char>& file){
+      VkShaderModuleCreateInfo createInfo {}; 
+      createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+      createInfo.codeSize = file.size();
+      createInfo.pCode = reinterpret_cast<const uint32_t*>(file.data());
+
+      VkShaderModule shaderModule;
+      if(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear el shader module...");
+
+      return shaderModule;
     }
 };
 
