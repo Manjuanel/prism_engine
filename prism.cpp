@@ -56,6 +56,7 @@ class testApp {
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
 
+    VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
 
     const std::vector<char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -77,6 +78,7 @@ class testApp {
       createLogicalDevice();
       createSwapChain();
       createImageViews();
+      createRenderPass();
       createGraphicsPipeline();
     }
     void mainLoop(){
@@ -87,6 +89,7 @@ class testApp {
     void cleanup(){
       ///// CLEAN VULKAN /////
       vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+      vkDestroyRenderPass(device, renderPass, nullptr);
       for(auto imageView : imageViews) vkDestroyImageView(device, imageView, nullptr);
       vkDestroySwapchainKHR(device, swapChain, nullptr);
       vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -461,6 +464,35 @@ return details;
       // Una vez creado el pipeline grafico, no necesitamos los shader modules, asi que podemos eliminarlos aca
       vkDestroyShaderModule(device, fragShaderModule, nullptr);
       vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    }
+    void createRenderPass(){
+      VkAttachmentDescriptor colorAttachment {};
+      colorAttachment.format = swapChainImageFormat;
+      colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT; // Tiene que ver con MSAA
+      colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+      colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+      colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SRC_KHR;
+      
+      VkAttachmentReference colorAttachmentRef {};
+      colorAttachmentRef.attachment = 0;
+      colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+      VkSubpassDescriptor subpass {};
+      subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+      subpass.colorAttachmentCount = 1;
+      subpass.pColorAttachments = &colorAttachmentRef;
+
+      VkRenderPassCreateInfo createInfo {};
+      createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+      createInfo.attachmentCount = 1;
+      createInfo.pAttachments = &colorAttachment;
+      createInfo.subpassCount = 1;
+      createInfo.pSubpasses = &subpass;
+
+      if(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear el Render Pass...");
     }
     static std::vector<char> readShader(const std::string& filename){
       std::ifstream file(filename, std::ios::ate | std::ios::binary);
