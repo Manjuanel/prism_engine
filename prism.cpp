@@ -58,6 +58,7 @@ class testApp {
 
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
 
     const std::vector<char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
@@ -88,6 +89,7 @@ class testApp {
     }
     void cleanup(){
       ///// CLEAN VULKAN /////
+      vkDestroyPipeline(device, graphicsPipeline, nullptr);
       vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
       vkDestroyRenderPass(device, renderPass, nullptr);
       for(auto imageView : imageViews) vkDestroyImageView(device, imageView, nullptr);
@@ -458,7 +460,27 @@ return details;
       pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
       
       if(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS){
-        throw std::runtime_error("ERROR: No se pudo crear la pipeline...");
+        throw std::runtime_error("ERROR: No se pudo crear el pipeline layout...");
+      }
+
+      VkGraphicsPipelineCreateInfo pipelineInfo {};
+      pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+      pipelineInfo.stageCount = 2;
+      pipelineInfo.pStages = shaderStages;
+      pipelineInfo.pVertexInputState = &vertexInput;
+      pipelineInfo.pInputAssemblyState = &inputAssembly;
+      pipelineInfo.pViewportState = &viewportState;
+      pipelineInfo.pRasterizationState = &rasterizer;
+      pipelineInfo.pMultisampleState = &multisampling;
+      pipelineInfo.pDepthStencilState = nullptr;
+      pipelineInfo.pColorBlendState = &colorBlend;
+      pipelineInfo.pDynamicState = &dynamicState;
+      pipelineInfo.layout = pipelineLayout;
+      pipelineInfo.renderPass = renderPass;
+      pipelineInfo.subpass = 0;
+
+      if(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS){
+        throw std::runtime_error("ERROR: No se pudo crear la pipeline grafica...");
       }
 
       // Una vez creado el pipeline grafico, no necesitamos los shader modules, asi que podemos eliminarlos aca
