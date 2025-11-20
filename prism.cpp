@@ -438,8 +438,8 @@ return details;
       rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
       rasterizer.depthBiasEnable = VK_FALSE;
 
-      VkPipelineMultisamplingStateCreateInfo multisampling {};
-      multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLING_STATE_CREATE_INFO;
+      VkPipelineMultisampleStateCreateInfo multisampling {};
+      multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
       multisampling.sampleShadingEnable = VK_FALSE;
       multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -449,8 +449,8 @@ return details;
       colorBlendAttachment.blendEnable = VK_FALSE;
 
       VkPipelineColorBlendStateCreateInfo colorBlend {};
-      colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_CREATE_INFO;
-      colorBlend.LogicOpEnable = VK_FALSE;
+      colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+      colorBlend.logicOpEnable = VK_FALSE;
       colorBlend.attachmentCount = 1;
       colorBlend.pAttachments = &colorBlendAttachment;
 
@@ -466,7 +466,7 @@ return details;
       vkDestroyShaderModule(device, vertShaderModule, nullptr);
     }
     void createRenderPass(){
-      VkAttachmentDescriptor colorAttachment {};
+      VkAttachmentDescription colorAttachment {};
       colorAttachment.format = swapChainImageFormat;
       colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT; // Tiene que ver con MSAA
       colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -474,13 +474,13 @@ return details;
       colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
       colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
       colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SRC_KHR;
+      colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
       
       VkAttachmentReference colorAttachmentRef {};
       colorAttachmentRef.attachment = 0;
       colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-      VkSubpassDescriptor subpass {};
+      VkSubpassDescription subpass {};
       subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
       subpass.colorAttachmentCount = 1;
       subpass.pColorAttachments = &colorAttachmentRef;
