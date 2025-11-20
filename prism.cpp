@@ -56,6 +56,8 @@ class testApp {
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
 
+    VkPipelineLayout pipelineLayout;
+
     const std::vector<char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
     void initWindow(){
@@ -84,6 +86,7 @@ class testApp {
     }
     void cleanup(){
       ///// CLEAN VULKAN /////
+      vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
       for(auto imageView : imageViews) vkDestroyImageView(device, imageView, nullptr);
       vkDestroySwapchainKHR(device, swapChain, nullptr);
       vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -415,13 +418,45 @@ return details;
       //scissor.offset = {0, 0};
       //scissor.extent = swapChainExtent;
 
-      VkPipelineViewportStateCreateInfo viewportState{};
+      VkPipelineViewportStateCreateInfo viewportState {};
       viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
       viewportState.viewportCount = 1;
       //viewportState.pViewports = &viewport;       // Solo para implementaciones estaticas
       viewportState.scissorCount = 1;
       //viewportState.pScissors = &scissor;       // Solo para implementaciones estaticas
 
+      VkPipelineRasterizationStateCreateInfo rasterizer {};
+      rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+      rasterizer.depthClampEnable = VK_FALSE;
+      rasterizer.rasterizerDiscardEnable = VK_FALSE;
+      rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+      rasterizer.lineWidth = 1.0f;
+      rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+      rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+      rasterizer.depthBiasEnable = VK_FALSE;
+
+      VkPipelineMultisamplingStateCreateInfo multisampling {};
+      multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLING_STATE_CREATE_INFO;
+      multisampling.sampleShadingEnable = VK_FALSE;
+      multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+      // Para implementar transparencia, mirar esta estructura
+      VkPipelineColorBlendAttachmentState colorBlendAttachment {};
+      colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+      colorBlendAttachment.blendEnable = VK_FALSE;
+
+      VkPipelineColorBlendStateCreateInfo colorBlend {};
+      colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_CREATE_INFO;
+      colorBlend.LogicOpEnable = VK_FALSE;
+      colorBlend.attachmentCount = 1;
+      colorBlend.pAttachments = &colorBlendAttachment;
+
+      VkPipelineLayoutCreateInfo pipelineLayoutInfo {};
+      pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+      
+      if(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS){
+        throw std::runtime_error("ERROR: No se pudo crear la pipeline...");
+      }
 
       // Una vez creado el pipeline grafico, no necesitamos los shader modules, asi que podemos eliminarlos aca
       vkDestroyShaderModule(device, fragShaderModule, nullptr);
