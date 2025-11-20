@@ -379,6 +379,50 @@ return details;
 
       VkPipelineShaderStageCreateInfo shaderStages[] = {fragShaderCreateInfo, vertShaderCreateInfo};
 
+      std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+      };
+
+      VkPipelineDynamicStateCreateInfo dynamicState {};
+      dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+      dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+      dynamicState.pDynamicStates = dynamicStates.data();
+      
+      VkPipelineVertexInputStateCreateInfo vertexInput {};
+      vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+      vertexInput.vertexBindingDescriptionCount = 0;
+      vertexInput.pVertexBindingDescriptions = nullptr;
+      vertexInput.vertexAttributeDescriptionCount = 0;
+      vertexInput.pVertexAttributeDescriptions = nullptr;
+
+      VkPipelineInputAssemblyStateCreateInfo inputAssembly {};
+      inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+      inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+      inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+      // Solo se declaran aca si la implementacion las mantiene estaticas (no es el caso)
+      //
+      //VkViewport viewport {};
+      //viewport.x = 0.0f;
+      //viewport.y = 0.0f;
+      //viewport.height = (float) swapChainExtent.height;
+      //viewport.width  = (float) swapChainExtent.width;
+      //viewport.minDepth = 0.0f;
+      //viewport.maxDepth = 1.0f;
+      //
+      //VkRect2D scissor {};
+      //scissor.offset = {0, 0};
+      //scissor.extent = swapChainExtent;
+
+      VkPipelineViewportStateCreateInfo viewportState{};
+      viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+      viewportState.viewportCount = 1;
+      //viewportState.pViewports = &viewport;       // Solo para implementaciones estaticas
+      viewportState.scissorCount = 1;
+      //viewportState.pScissors = &scissor;       // Solo para implementaciones estaticas
+
+
       // Una vez creado el pipeline grafico, no necesitamos los shader modules, asi que podemos eliminarlos aca
       vkDestroyShaderModule(device, fragShaderModule, nullptr);
       vkDestroyShaderModule(device, vertShaderModule, nullptr);
