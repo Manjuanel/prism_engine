@@ -60,6 +60,10 @@ class testApp {
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
 
+    VkCommandPool commandPool;
+
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+
     const std::vector<char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
     void initWindow(){
@@ -81,6 +85,8 @@ class testApp {
       createImageViews();
       createRenderPass();
       createGraphicsPipeline();
+      createFramebuffers();
+      createCommandPool();
     }
     void mainLoop(){
       while(!glfwWindowShouldClose(window)){
@@ -89,6 +95,8 @@ class testApp {
     }
     void cleanup(){
       ///// CLEAN VULKAN /////
+      vkDestroyCommandPool(device, commandPool, nullptr);
+      for(auto framebuffer : swapChainFramebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
       vkDestroyPipeline(device, graphicsPipeline, nullptr);
       vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
       vkDestroyRenderPass(device, renderPass, nullptr);
@@ -515,6 +523,34 @@ return details;
       createInfo.pSubpasses = &subpass;
 
       if(vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear el Render Pass...");
+    }
+    void createFramebuffers(){
+      swapChainFramebuffers.resize(imageViews.size());
+
+      for(int i = 0; i < imageViews.size(); i++){
+        VkImageView attachments[] = {
+          imageViews[i]
+        };
+        
+        VkFramebufferCreateInfo createInfo {};
+        createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        createInfo.renderPass = renderPass;
+        createInfo.attachmentCount = 1;
+        createInfo.pAttachments = attachments;
+        createInfo.width = swapChainExtent.width;
+        createInfo.height = swapChainExtent.height;
+        createInfo.layers = 1;
+
+        if(vkCreateFramebuffer(device, &createInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudieron crear los Frambuffers...");
+      }
+    }
+    void createCommandPool(){
+      VkCommandPoolCreateInfo poolInfo{};
+      poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+      poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+      poolInfo.queueFamilyIndex = queueIndices.graphicsQueue.value();
+      
+      if(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear la Command pool...");
     }
     static std::vector<char> readShader(const std::string& filename){
       std::ifstream file(filename, std::ios::ate | std::ios::binary);
