@@ -61,6 +61,7 @@ class testApp {
     VkPipeline graphicsPipeline;
 
     VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
@@ -545,13 +546,23 @@ return details;
       }
     }
     void createCommandPool(){
-      VkCommandPoolCreateInfo poolInfo{};
-      poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-      poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-      poolInfo.queueFamilyIndex = queueIndices.graphicsQueue.value();
+      VkCommandPoolCreateInfo createInfo{};
+      createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+      createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+      createInfo.queueFamilyIndex = queueIndices.graphicsQueue.value();
       
-      if(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear la Command pool...");
+      if(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear la Command pool...");
     }
+    void createCommandBuffer(){
+      VkCommandBufferAllocateInfo createInfo {};
+      createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+      createInfo.commandPool = commandPool;
+      createInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+      createInfo.commandBufferCount = 1; // Por ahora probably
+
+      if(vkAllocateCommandBuffers(device, &createInfo, &commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se puedo alocar memoria para el command buffer...");
+    }
+
     static std::vector<char> readShader(const std::string& filename){
       std::ifstream file(filename, std::ios::ate | std::ios::binary);
       if(!file.is_open()) throw std::runtime_error("ERROR: No se pudo abrir el shader " + filename);
