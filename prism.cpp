@@ -19,6 +19,7 @@
 
 #define WIDTH 800
 #define HEIGHT 600
+#define BACKGROUND {{{0.224f, 0.314f, 0.349f, 1.0f}}}
 
 class VkApp
 {
@@ -36,13 +37,8 @@ class VkApp
     VkSurfaceKHR surface;
     VkPhysicalDevice graphicsCard;
 
-    struct QueueFamilyIndices
-    {
-      std::optional<uint32_t> graphicsQueue;
-      std::optional<uint32_t> presentQueue;
-    };    
-    struct SwapChainSupportDetails
-    {
+    struct QueueFamilyIndices { std::optional<uint32_t> graphicsQueue; std::optional<uint32_t> presentQueue; };    
+    struct SwapChainSupportDetails {
       VkSurfaceCapabilitiesKHR capabilities;
       std::vector<VkSurfaceFormatKHR> formats;
       std::vector<VkPresentModeKHR> presentModes;
@@ -530,7 +526,6 @@ class VkApp
       createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
       createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
       createInfo.queueFamilyIndex = queueIndices.graphicsQueue.value();
-      
       if(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear la Command pool...");
     }
     void createCommandBuffer (void)
@@ -540,8 +535,48 @@ class VkApp
       createInfo.commandPool = commandPool;
       createInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
       createInfo.commandBufferCount = 1; // Por ahora probably
+      if(vkAllocateCommandBuffers(device, &createInfo, &commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo alocar memoria para el command buffer...");
+    }
+    void recordCommandBuffer (VkCommandBuffer commandBuffer, uint32_t imageIndex)
+    {
+      VkClearValue clearColor = BACKGROUND; //asumo
 
-      if(vkAllocateCommandBuffers(device, &createInfo, &commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se puedo alocar memoria para el command buffer...");
+      VkCommandBufferBeginInfo beginInfo {};
+      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      beginInfo.flags = 0; // Buscar info al respecto
+      beginInfo.pInheritanceInfo = nullptr; // Buscar info al respecto
+      if(vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo comenzar a escribir el command buffer...");
+
+      VkRenderPassBeginInfo renderBeginInfo {};
+      renderBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      renderBeginInfo.renderPass = renderPass;
+      renderBeginInfo.framebuffer = swapChainFramebuffers[imageIndex];
+      renderBeginInfo.renderArea.offset = {0, 0};
+      renderBeginInfo.renderArea.extent = swapChainExtent;
+      renderBeginInfo.clearValueCount = 1;
+      renderBeginInfo.pClearValues = &clearColor;
+      //Commands
+      vkCmdBeginRenderPass(commandBuffer, &renderBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+      VkViewport viewport {};
+      viewport.x = 0.0f;
+      viewport.y = 0.0f;
+      viewport.height = static_cast<float>(swapChainExtent.height);
+      viewport.width = static_cast<float>(swapChainExtent.width);
+      viewport.minDepth = 0.0f;
+      viewport.maxDepth = 1.0f;
+      vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+      VkRect2D scissor {};
+      scissor.offset = {0, 0};
+      scissor.extent = swapChainExtent;
+      vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+      vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+      vkCmdEndRenderPass(commandBuffer);
+      if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo terminar de escribir el command buffer...");
     }
     static std::vector<char> readShader (const std::string& filename)
     {
