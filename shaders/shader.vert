@@ -2,9 +2,9 @@
 layout(location = 0) out vec4 fragColor;
 
 vec4 colors[3] = vec4[](
-  vec4(1.0, 0.0, 0.0, 1.0),
-  vec4(0.0, 1.0, 0.0, 1.0),
-  vec4(0.0, 0.0, 1.0, 1.0)
+  vec4(1.0, 0.271, 0.873, 1.0),
+  vec4(0.153, 0.149, 1.0, 1.0),
+  vec4(0.533, 0.035, 0.71, 1.0)
 );
 
 vec2 positions[3] = vec2[](

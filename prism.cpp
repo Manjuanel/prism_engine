@@ -19,7 +19,7 @@
 
 #define WIDTH 800
 #define HEIGHT 600
-#define BACKGROUND {{{0.224f, 0.314f, 0.349f, 1.0f}}}
+#define BACKGROUND {{{0.037, 0.017f, 0.069f, 1.0f}}}
 
 class VkApp
 {
@@ -61,6 +61,11 @@ class VkApp
 
     const std::vector<char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
+    //Sync
+    VkSemaphore sImageAvailable;
+    VkSemaphore sRenderFinished;
+    VkFence fFrameEnded;
+
     void initWindow (void)
     {
       glfwInit();
@@ -82,16 +87,23 @@ class VkApp
       createGraphicsPipeline();
       createFramebuffers();
       createCommandPool();
+      createCommandBuffer();
+      createSyncObjects();
     }
     void mainLoop (void)
     {
       while(!glfwWindowShouldClose(window))
       {
         glfwPollEvents();
+        drawFrame();
       } 
     }
     void cleanup (void)
     {
+      ///// CLEAN SYNC /////
+      vkDestroySemaphore(device, sImageAvailable, nullptr);
+      vkDestroySemaphore(device, sRenderFinished, nullptr);
+      vkDestroyFence(device, fFrameEnded, nullptr);
       ///// CLEAN VULKAN /////
       vkDestroyCommandPool(device, commandPool, nullptr);
       for(auto framebuffer : swapChainFramebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -107,7 +119,41 @@ class VkApp
       glfwDestroyWindow(window); 
       glfwTerminate(); 
     }
+    void drawFrame (void)
+    {
+      vkWaitForFences(device, 1, &fFrameEnded, VK_TRUE, UINT64_MAX);
+      vkResetFences(device, 1, &fFrameEnded);
+    
+      uint32_t imageIndex;
+      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, sImageAvailable, VK_NULL_HANDLE, &imageIndex);
 
+      vkResetCommandBuffer(commandBuffer, 0);
+      recordCommandBuffer(commandBuffer, imageIndex); 
+      
+      VkSemaphore waitSemaphores[] = { sImageAvailable };
+      VkSemaphore signalSemaphores[] = { sRenderFinished };
+      VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT }; //Estudiar mas en profundidad
+      VkSubmitInfo submitInfo {};
+      submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      submitInfo.waitSemaphoreCount = 1;
+      submitInfo.pWaitSemaphores = waitSemaphores;
+      submitInfo.pWaitDstStageMask = waitStages;
+      submitInfo.commandBufferCount = 1;
+      submitInfo.pCommandBuffers = &commandBuffer;
+      submitInfo.signalSemaphoreCount = 1;
+      submitInfo.pSignalSemaphores = signalSemaphores;
+      if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, fFrameEnded) != VK_SUCCESS) throw std::runtime_error("ERROR: No fue posible completar un frame...");
+
+      VkSwapchainKHR swapChains[] = { swapChain };
+      VkPresentInfoKHR presentInfo {};
+      presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+      presentInfo.waitSemaphoreCount = 1;
+      presentInfo.pWaitSemaphores = signalSemaphores;
+      presentInfo.swapchainCount = 1;
+      presentInfo.pSwapchains = swapChains;
+      presentInfo.pImageIndices = &imageIndex;
+      vkQueuePresentKHR(presentQueue, &presentInfo);
+    }
     void createSurface (void)
     {
       if(glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear la superficie de la ventana...");
@@ -537,7 +583,7 @@ class VkApp
       createInfo.commandBufferCount = 1; // Por ahora probably
       if(vkAllocateCommandBuffers(device, &createInfo, &commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo alocar memoria para el command buffer...");
     }
-    void recordCommandBuffer (VkCommandBuffer commandBuffer, uint32_t imageIndex)
+    void recordCommandBuffer (VkCommandBuffer commandBuffer, uint32_t& imageIndex)
     {
       VkClearValue clearColor = BACKGROUND; //asumo
 
@@ -577,6 +623,21 @@ class VkApp
 
       vkCmdEndRenderPass(commandBuffer);
       if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo terminar de escribir el command buffer...");
+    }
+    void createSyncObjects (void)
+    {
+      VkSemaphoreCreateInfo semaphoreInfo {};
+      semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+      VkFenceCreateInfo fenceInfo {};
+      fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; //Flag para que empiece señalado.
+
+      if(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &sImageAvailable) ||
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &sRenderFinished) ||
+        vkCreateFence(device, &fenceInfo, nullptr, &fFrameEnded))
+      {
+        throw std::runtime_error("ERROR: No se pudieron crear los objetos de sincronizacion...");    
+      }
     }
     static std::vector<char> readShader (const std::string& filename)
     {
