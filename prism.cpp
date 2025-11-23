@@ -20,6 +20,7 @@
 #define WIDTH 800
 #define HEIGHT 600
 #define BACKGROUND {{{0.037, 0.017f, 0.069f, 1.0f}}}
+#define MAX_FRAMES_IN_FLIGHT 2
 
 class VkApp
 {
@@ -36,6 +37,7 @@ class VkApp
     VkInstance instance;
     VkSurfaceKHR surface;
     VkPhysicalDevice graphicsCard;
+    uint32_t currentFrame = 0;
 
     struct QueueFamilyIndices { std::optional<uint32_t> graphicsQueue; std::optional<uint32_t> presentQueue; };    
     struct SwapChainSupportDetails {
@@ -56,15 +58,15 @@ class VkApp
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     VkCommandPool commandPool;
-    VkCommandBuffer commandBuffer;
+    std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
     const std::vector<char*> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
     //Sync
-    VkSemaphore sImageAvailable;
-    VkSemaphore sRenderFinished;
-    VkFence fFrameEnded;
+    std::vector<VkSemaphore> sImagesAvailable;
+    std::vector<VkSemaphore> sRendersFinished;
+    std::vector<VkFence> fFramesEnded;
 
     void initWindow (void)
     {
@@ -73,7 +75,7 @@ class VkApp
       glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
       glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-      window = glfwCreateWindow(WIDTH, HEIGHT, "TEST", nullptr, nullptr);
+      window = glfwCreateWindow(WIDTH, HEIGHT, "prism_engine", nullptr, nullptr);
     }
     void initVulkan (void)
     {
@@ -87,8 +89,9 @@ class VkApp
       createGraphicsPipeline();
       createFramebuffers();
       createCommandPool();
-      createCommandBuffer();
+      createCommandBuffers();
       createSyncObjects();
+      std::cout << "AAAAAA" << std::endl;      
     }
     void mainLoop (void)
     {
@@ -97,13 +100,17 @@ class VkApp
         glfwPollEvents();
         drawFrame();
       } 
+      vkDeviceWaitIdle(device); //Espera a que la grafica haya terminado todo antes de pasar a cleanup()
     }
     void cleanup (void)
     {
       ///// CLEAN SYNC /////
-      vkDestroySemaphore(device, sImageAvailable, nullptr);
-      vkDestroySemaphore(device, sRenderFinished, nullptr);
-      vkDestroyFence(device, fFrameEnded, nullptr);
+      for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+      {
+        vkDestroySemaphore(device, sImagesAvailable[i], nullptr);
+        vkDestroySemaphore(device, sRendersFinished[i], nullptr);
+        vkDestroyFence(device, fFramesEnded[i], nullptr);
+      }
       ///// CLEAN VULKAN /////
       vkDestroyCommandPool(device, commandPool, nullptr);
       for(auto framebuffer : swapChainFramebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -121,17 +128,16 @@ class VkApp
     }
     void drawFrame (void)
     {
-      vkWaitForFences(device, 1, &fFrameEnded, VK_TRUE, UINT64_MAX);
-      vkResetFences(device, 1, &fFrameEnded);
+      vkWaitForFences(device, 1, &fFramesEnded[currentFrame], VK_TRUE, UINT64_MAX);
+      vkResetFences(device, 1, &fFramesEnded[currentFrame]);
     
       uint32_t imageIndex;
-      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, sImageAvailable, VK_NULL_HANDLE, &imageIndex);
+      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, sImagesAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-      vkResetCommandBuffer(commandBuffer, 0);
-      recordCommandBuffer(commandBuffer, imageIndex); 
-      
-      VkSemaphore waitSemaphores[] = { sImageAvailable };
-      VkSemaphore signalSemaphores[] = { sRenderFinished };
+      vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+      recordCommandBuffer(commandBuffers[currentFrame], imageIndex); 
+      VkSemaphore waitSemaphores[] = { sImagesAvailable[currentFrame] };
+      VkSemaphore signalSemaphores[] = { sRendersFinished[currentFrame] };
       VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT }; //Estudiar mas en profundidad
       VkSubmitInfo submitInfo {};
       submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -139,10 +145,10 @@ class VkApp
       submitInfo.pWaitSemaphores = waitSemaphores;
       submitInfo.pWaitDstStageMask = waitStages;
       submitInfo.commandBufferCount = 1;
-      submitInfo.pCommandBuffers = &commandBuffer;
+      submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
       submitInfo.signalSemaphoreCount = 1;
       submitInfo.pSignalSemaphores = signalSemaphores;
-      if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, fFrameEnded) != VK_SUCCESS) throw std::runtime_error("ERROR: No fue posible completar un frame...");
+      if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, fFramesEnded[currentFrame]) != VK_SUCCESS) throw std::runtime_error("ERROR: No fue posible completar un frame...");
 
       VkSwapchainKHR swapChains[] = { swapChain };
       VkPresentInfoKHR presentInfo {};
@@ -153,6 +159,8 @@ class VkApp
       presentInfo.pSwapchains = swapChains;
       presentInfo.pImageIndices = &imageIndex;
       vkQueuePresentKHR(presentQueue, &presentInfo);
+
+      currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; //Alterna los frames para usar los duplicados correctos
     }
     void createSurface (void)
     {
@@ -574,14 +582,15 @@ class VkApp
       createInfo.queueFamilyIndex = queueIndices.graphicsQueue.value();
       if(vkCreateCommandPool(device, &createInfo, nullptr, &commandPool) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo crear la Command pool...");
     }
-    void createCommandBuffer (void)
+    void createCommandBuffers (void)
     {
+      commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
       VkCommandBufferAllocateInfo createInfo {};
       createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
       createInfo.commandPool = commandPool;
       createInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-      createInfo.commandBufferCount = 1; // Por ahora probably
-      if(vkAllocateCommandBuffers(device, &createInfo, &commandBuffer) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo alocar memoria para el command buffer...");
+      createInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+      if(vkAllocateCommandBuffers(device, &createInfo, commandBuffers.data()) != VK_SUCCESS) throw std::runtime_error("ERROR: No se pudo alocar memoria para algun command buffer...");
     }
     void recordCommandBuffer (VkCommandBuffer commandBuffer, uint32_t& imageIndex)
     {
@@ -626,17 +635,24 @@ class VkApp
     }
     void createSyncObjects (void)
     {
+      sImagesAvailable.resize(MAX_FRAMES_IN_FLIGHT);
+      sRendersFinished.resize(MAX_FRAMES_IN_FLIGHT);
+      fFramesEnded.resize(MAX_FRAMES_IN_FLIGHT);
+
       VkSemaphoreCreateInfo semaphoreInfo {};
       semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
       VkFenceCreateInfo fenceInfo {};
       fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
       fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; //Flag para que empiece señalado.
-
-      if(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &sImageAvailable) ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &sRenderFinished) ||
-        vkCreateFence(device, &fenceInfo, nullptr, &fFrameEnded))
+      
+      for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
       {
-        throw std::runtime_error("ERROR: No se pudieron crear los objetos de sincronizacion...");    
+        if(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &sImagesAvailable[i]) != VK_SUCCESS ||
+           vkCreateSemaphore(device, &semaphoreInfo, nullptr, &sRendersFinished[i]) != VK_SUCCESS ||
+           vkCreateFence(device, &fenceInfo, nullptr, &fFramesEnded[i]) != VK_SUCCESS)
+        {
+          throw std::runtime_error("ERROR: No se pudieron crear los objetos de sincronizacion...");    
+        }
       }
     }
     static std::vector<char> readShader (const std::string& filename)
