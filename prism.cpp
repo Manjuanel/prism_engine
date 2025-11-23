@@ -91,7 +91,6 @@ class VkApp
       createCommandPool();
       createCommandBuffers();
       createSyncObjects();
-      std::cout << "AAAAAA" << std::endl;      
     }
     void mainLoop (void)
     {
@@ -112,13 +111,11 @@ class VkApp
         vkDestroyFence(device, fFramesEnded[i], nullptr);
       }
       ///// CLEAN VULKAN /////
+      cleanupSwapchain();
       vkDestroyCommandPool(device, commandPool, nullptr);
-      for(auto framebuffer : swapChainFramebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
       vkDestroyPipeline(device, graphicsPipeline, nullptr);
       vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
       vkDestroyRenderPass(device, renderPass, nullptr);
-      for(auto imageView : imageViews) vkDestroyImageView(device, imageView, nullptr);
-      vkDestroySwapchainKHR(device, swapChain, nullptr);
       vkDestroySurfaceKHR(instance, surface, nullptr);
       vkDestroyInstance(instance, nullptr);
       vkDestroyDevice(device, nullptr);
@@ -132,7 +129,7 @@ class VkApp
       vkResetFences(device, 1, &fFramesEnded[currentFrame]);
     
       uint32_t imageIndex;
-      vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, sImagesAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
+      VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, sImagesAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
       vkResetCommandBuffer(commandBuffers[currentFrame], 0);
       recordCommandBuffer(commandBuffers[currentFrame], imageIndex); 
@@ -159,6 +156,14 @@ class VkApp
       presentInfo.pSwapchains = swapChains;
       presentInfo.pImageIndices = &imageIndex;
       vkQueuePresentKHR(presentQueue, &presentInfo);
+
+      if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+      {
+        recreateSwapchain();
+      } else if(result != VK_SUCCESS)
+      {
+        throw std::runtime_error("ERROR: No se puede presentar la swapchain...");
+      }
 
       currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; //Alterna los frames para usar los duplicados correctos
     }
@@ -654,6 +659,22 @@ class VkApp
           throw std::runtime_error("ERROR: No se pudieron crear los objetos de sincronizacion...");    
         }
       }
+    }
+    void recreateSwapchain (void)
+    {
+      vkDeviceWaitIdle(device);
+
+      cleanupSwapchain();
+      createSwapChain();
+      createImageViews();
+      createFramebuffers();
+      // Quiza en el futuro se deba recrear el render pass
+    }
+    void cleanupSwapchain (void)
+    {
+      for(auto framebuffer : swapChainFramebuffers) vkDestroyFramebuffer(device, framebuffer, nullptr);
+      for(auto imageView : imageViews) vkDestroyImageView(device, imageView, nullptr);
+      vkDestroySwapchainKHR(device, swapChain, nullptr);
     }
     static std::vector<char> readShader (const std::string& filename)
     {
